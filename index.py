@@ -36,7 +36,7 @@ def summarize_saved_orders(message):
     # Join all saved orders into one text block
     raw_text = "\n".join(daily_orders)
     
-    model = ai.GenerativeModel('gemini-1.5-pro')
+    model = ai.GenerativeModel('gemini-1.5-flash')
     prompt = f"Summarize these Khmer lunch orders into a clean table with 'Dish' and 'Quantity' columns. Calculate total rice (បាយ) at the bottom: {raw_text}"
     
     try:

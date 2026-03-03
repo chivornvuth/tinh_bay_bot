@@ -3,8 +3,8 @@ import os
 from google import generativeai as ai
 
 # Replace with your actual keys or use environment variables
-bot = telebot.TeleBot("YOU8683580379:AAG8-ATGlyb6gDgCDsKNoX5dNaJGGKP6UQcR_TELEGRAM_TOKEN")
-ai.configure(api_key="AIzaSyD9fPZXIyT_yw0PNeheeRYf4dsuAsczaA4")
+bot = telebot.TeleBot("")
+ai.configure("")
 
 @bot.message_handler(commands=['sum'])
 def summarize_orders(message):

@@ -1,10 +1,11 @@
+import os  # Add this at the top
 import telebot
-import os
 from google import generativeai as ai
 
-# Replace with your actual keys or use environment variables
-bot = telebot.TeleBot("")
-ai.configure("")
+
+# Replace the empty strings with this:
+bot = telebot.TeleBot(os.getenv("TELEGRAM_TOKEN"))
+ai.configure(api_key=os.getenv("GEMINI_KEY"))
 
 @bot.message_handler(commands=['sum'])
 def summarize_orders(message):

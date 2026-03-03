@@ -2,10 +2,10 @@ import os
 import telebot
 from flask import Flask
 from threading import Thread
+from datetime import datetime
 import google.generativeai as ai
 
 # --- 1. Keep-Alive Web Server for Render ---
-# Render requires an active port to keep the free service running.
 app = Flask('')
 
 @app.route('/')
@@ -13,11 +13,11 @@ def home():
     return "Bot is running!"
 
 def run_web():
-    # Render uses port 10000 by default for web services
+    # Render uses port 10000 by default
     app.run(host='0.0.0.0', port=10000)
 
 # --- 2. Bot Configuration ---
-# These pull from the "Environment Variables" you set in the Render dashboard
+# Uses Environment Variables set in Render Dashboard
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GEMINI_KEY = os.getenv("GEMINI_KEY")
 
@@ -25,33 +25,53 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 ai.configure(api_key=GEMINI_KEY)
 
 @bot.message_handler(commands=['sum'])
-def summarize_orders(message):
-    # Check if the user is actually replying to a message
-    if not message.reply_to_message or not message.reply_to_message.text:
-        bot.reply_to(message, "សូម help reply ទៅលើសារដែលមានបញ្ជីម្ហូប (Please reply to the text list).")
-        return
+def summarize_daily_orders(message):
+    chat_id = message.chat.id
+    today = datetime.now().date()
+    daily_text = ""
 
-    raw_text = message.reply_to_message.text
-    
-    # Using Gemini 1.5 Flash for speed
-    model = ai.GenerativeModel('gemini-1.5-flash')
-    
-    # Specific prompt to ensure it stays in Khmer and sums correctly
-    prompt = f"Summarize these Khmer food orders into a clean table and count the total rice (បាយ): {raw_text}"
-    
     try:
+        # Fetch last 100 messages to find today's orders
+        # Note: Bot must be an ADMIN to read history properly
+        history = bot.get_chat_history(chat_id, limit=100)
+        
+        for msg in history:
+            # Convert message timestamp to date
+            msg_date = datetime.fromtimestamp(msg.date).date()
+            
+            # Only collect messages from today that look like orders
+            if msg_date == today and msg.text:
+                # Basic filter: check for Khmer rice (បាយ) or numbers
+                if "បាយ" in msg.text or any(char.isdigit() for char in msg.text):
+                    daily_text += f"\n{msg.from_user.first_name}: {msg.text}"
+
+        if not daily_text:
+            bot.reply_to(message, "រកមិនឃើញការកម្ម៉ង់សម្រាប់ថ្ងៃនេះទេ! (No orders found for today!)")
+            return
+
+        # Using Gemini 1.5 Pro for better Khmer accuracy
+        model = ai.GenerativeModel('gemini-1.5-pro')
+        
+        prompt = f"""
+        Extract and sum all food orders from this text for today. 
+        Format as a clean Khmer table with 'Dish' and 'Quantity'. 
+        Calculate the 'Total Rice (សរុបបាយ)' at the bottom.
+        Data: {daily_text}
+        """
+
         response = model.generate_content(prompt)
         bot.reply_to(message, response.text)
+
     except Exception as e:
         print(f"Error: {e}")
-        bot.reply_to(message, "Error: AI is having trouble processing this.")
+        bot.reply_to(message, "Error: AI is having trouble accessing the daily history.")
 
 # --- 3. Start Both Services ---
 if __name__ == "__main__":
-    # Start the Flask server in a separate thread so it doesn't block the bot
+    # Start web server thread
     t = Thread(target=run_web)
     t.start()
     
     print("Bot is starting...")
-    # infinity_polling is better for production as it handles network drops
+    # infinity_polling handles network drops better
     bot.infinity_polling()

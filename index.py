@@ -1,78 +1,57 @@
-import os
-import telebot
+import os, telebot
 from flask import Flask
 from threading import Thread
-from datetime import datetime
 import google.generativeai as ai
 
-# --- 1. Keep-Alive Web Server for Render ---
+# --- 1. Keep-Alive Web Server ---
 app = Flask('')
-
 @app.route('/')
-def home():
-    return "Bot is running!"
+def home(): return "Bot is Active!"
 
 def run_web():
-    print("[DEBUG] Flask server starting on port 10000...")
-    app.run(host='0.0.0.0', port=10000)
+    app.run(host='0.0.0.0', port=os.environ.get("PORT", 10000))
 
-# --- 2. Bot Configuration ---
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-GEMINI_KEY = os.getenv("GEMINI_KEY")
+# --- 2. Bot Setup ---
+bot = telebot.TeleBot(os.getenv("TELEGRAM_TOKEN"))
+ai.configure(api_key=os.getenv("GEMINI_KEY"))
 
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
-ai.configure(api_key=GEMINI_KEY)
+# This list will store orders sent while the bot is running
+daily_orders = []
+
+@bot.message_handler(func=lambda m: True if m.text and ("បាយ" in m.text or any(c.isdigit() for c in m.text)) else False)
+def collect_orders(message):
+    # This automatically "sees" and saves orders as they are sent
+    order_info = f"{message.from_user.first_name}: {message.text}"
+    daily_orders.append(order_info)
+    print(f"[LOG] Saved order: {order_info}")
 
 @bot.message_handler(commands=['sum'])
-def summarize_daily(message):
-    print(f"\n[LOG] Received /sum command from {message.from_user.first_name} (@{message.from_user.username})")
+def summarize_saved_orders(message):
+    print("[LOG] Received /sum command")
     
-    chat_id = message.chat.id
-    today = datetime.now().date()
-    daily_text = ""
+    if not daily_orders:
+        bot.reply_to(message, "មិនទាន់មានការកម្ម៉ង់នៅឡើយទេ! (No orders saved yet!)")
+        return
 
+    # Join all saved orders into one text block
+    raw_text = "\n".join(daily_orders)
+    
+    model = ai.GenerativeModel('gemini-1.5-pro')
+    prompt = f"Summarize these Khmer lunch orders into a clean table with 'Dish' and 'Quantity' columns. Calculate total rice (បាយ) at the bottom: {raw_text}"
+    
     try:
-        print(f"[LOG] Attempting to fetch chat history for Chat ID: {chat_id}")
-        # Fetch last 100 messages
-        history = bot.get_chat_history(chat_id, limit=100)
-        print(f"[LOG] Successfully retrieved {len(history)} messages from history.")
-        
-        for msg in history:
-            msg_date = datetime.fromtimestamp(msg.date).date()
-            if msg_date == today and msg.text:
-                # Log every message the bot "sees" to check if it's blind
-                print(f"  > Analyzing message: {msg.text[:30]}...")
-                
-                # Check for keywords like 'បាយ' or numbers
-                if "បាយ" in msg.text or any(char.isdigit() for char in msg.text):
-                    daily_text += f"\n{msg.from_user.first_name}: {msg.text}"
-
-        if not daily_text:
-            print("[LOG] No orders matched for today's date.")
-            bot.reply_to(message, "រកមិនឃើញការកម្ម៉ង់សម្រាប់ថ្ងៃនេះទេ! (No orders found for today!)")
-            return
-
-        print(f"[LOG] Sending gathered data to Gemini AI...")
-        model = ai.GenerativeModel('gemini-1.5-pro')
-        prompt = f"Extract and sum all food orders from this text for today. Format as a clean Khmer table with 'Dish' and 'Quantity'. Calculate the 'Total Rice (សរុបបាយ)' at the bottom. Data: {daily_text}"
-        
         response = model.generate_content(prompt)
-        print("[LOG] AI response received. Sending to Telegram group.")
         bot.reply_to(message, response.text)
-
     except Exception as e:
-        print(f"[ERROR] Logic Failure: {e}")
-        bot.reply_to(message, "Error: Make sure the bot is an ADMIN to read chat history.")
+        bot.reply_to(message, "AI Error. Please check your Gemini Key.")
 
-# --- 3. Start Both Services ---
+@bot.message_handler(commands=['clear'])
+def clear_orders(message):
+    global daily_orders
+    daily_orders = []
+    bot.reply_to(message, "បញ្ជីត្រូវបានលុប! (Order list has been cleared!)")
+
 if __name__ == "__main__":
-    # Start web server thread
-    t = Thread(target=run_web)
-    t.daemon = True # Allows thread to exit when main program exits
-    t.start()
-    
-    print("[DEBUG] Telegram bot is initiating polling...")
-    try:
-        bot.infinity_polling()
-    except Exception as e:
-        print(f"[CRITICAL] Bot Polling Failed: {e}")
+    Thread(target=run_web).start()
+    print("[DEBUG] Bot is running...")
+    bot.infinity_polling()

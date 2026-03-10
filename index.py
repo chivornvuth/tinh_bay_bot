@@ -29,7 +29,8 @@ if not TELEGRAM_TOKEN or not GEMINI_KEY:
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 ai.configure(api_key=GEMINI_KEY)
 
-MODEL_NAME = 'gemini-2.5-flash-preview-09-2025'
+# កែប្រែត្រឡប់ទៅប្រើ gemini-2.5-flash វិញតាមការស្នើសុំ
+MODEL_NAME = 'gemini-2.5-flash'
 model = ai.GenerativeModel(MODEL_NAME)
 
 # In-memory storage for orders

@@ -15,6 +15,15 @@ def run_web():
 bot = telebot.TeleBot(os.getenv("TELEGRAM_TOKEN"))
 ai.configure(api_key=os.getenv("GEMINI_KEY"))
 
+# --- DEBUG: CHECK IF KEY EXISTS ---
+GEMINI_KEY = os.getenv("GEMINI_KEY")
+
+if not GEMINI_KEY:
+    print("[ERROR] GEMINI_KEY is MISSING from environment variables!")
+else:
+    # Print only the first and last 3 characters for security
+    print(f"[DEBUG] GEMINI_KEY found: {GEMINI_KEY[:3]}...{GEMINI_KEY[-3:]}")
+
 # This list will store orders sent while the bot is running
 daily_orders = []
 

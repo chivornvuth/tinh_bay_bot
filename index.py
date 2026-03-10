@@ -31,7 +31,7 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 ai.configure(api_key=GEMINI_KEY)
 
 # Use the 1.5-flash model for faster, cheaper processing
-model = ai.GenerativeModel('gemini-1.5-flash')
+model = ai.GenerativeModel('gemini-2.5-flash')  # Current stable workhorse
 
 # This list stores orders in memory (will reset if bot restarts)
 daily_orders = []

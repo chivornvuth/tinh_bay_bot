@@ -73,21 +73,21 @@ def summarize_saved_orders(message):
         "Instructions: Group identical dishes, sum quantities, format like 'ឆាសាច់ជ្រូក x3', count 'បាយ' separately."
     )
     
-    try:
-        # ប្តូរមកប្រើរបៀបហៅនេះវិញដើម្បីឱ្យច្បាស់
-        response = client.models.generate_content(
-            model=MODEL_NAME, 
-            contents=prompt
-        )
-        
-        if response and response.text:
-            bot.send_message(message.chat.id, f"📋 **បញ្ជីកម្ម៉ង់អាហារថ្ងៃនេះ:**\n\n{response.text}")
-        else:
-            bot.reply_to(message, "AI មិនបានឆ្លើយតបអត្ថបទទេ។")
-            
-    except Exception as e:
-        print(f"[ERROR] {e}") # មើល Error ក្នុង Log របស់ Render ដើម្បីដឹងច្បាស់
-        bot.reply_to(message, f"កំហុសបច្ចេកទេស៖ {str(e)}")
+   try:
+    # ប្រើ Client ដែលបានបង្កើតពី genai.Client(api_key=...)
+    response = client.models.generate_content(
+        model=MODEL_NAME, 
+        contents=prompt
+    )
+    
+    if response and response.text:
+        bot.send_message(message.chat.id, f"📋 **បញ្ជីសរុប៖**\n\n{response.text}")
+    else:
+        bot.reply_to(message, "AI មិនអាចបង្កើតអត្ថបទបានទេ។")
+
+except Exception as e:
+    print(f"[DEBUG ERROR] {e}")
+    bot.reply_to(message, f"កំហុសបច្ចេកទេស៖ {str(e)}")
 
 if __name__ == "__main__":
     Thread(target=run_web).start()

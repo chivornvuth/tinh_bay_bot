@@ -75,13 +75,20 @@ def summarize_saved_orders(message):
     )
     
     try:
-        # Updated AI call syntax
-        response = client.models.generate_content(model=MODEL_NAME, contents=prompt)
-        if response.text:
+        # ប្តូរមកប្រើរបៀបហៅនេះវិញដើម្បីឱ្យច្បាស់
+        response = client.models.generate_content(
+            model=MODEL_NAME, 
+            contents=prompt
+        )
+        
+        if response and response.text:
             bot.send_message(message.chat.id, f"📋 **បញ្ជីកម្ម៉ង់អាហារថ្ងៃនេះ:**\n\n{response.text}")
+        else:
+            bot.reply_to(message, "AI មិនបានឆ្លើយតបអត្ថបទទេ។")
+            
     except Exception as e:
-        print(f"[ERROR] {e}")
-        bot.reply_to(message, "កំហុសក្នុងការសង្ខេបបញ្ជី។")
+        print(f"[ERROR] {e}") # មើល Error ក្នុង Log របស់ Render ដើម្បីដឹងច្បាស់
+        bot.reply_to(message, f"កំហុសបច្ចេកទេស៖ {str(e)}")
 
 if __name__ == "__main__":
     Thread(target=run_web).start()

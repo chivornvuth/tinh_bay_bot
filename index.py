@@ -1,14 +1,15 @@
-import os, telebot
+import os
+import telebot
 from flask import Flask
 from threading import Thread
-from google import genai  # Updated library
+from google import genai
 from datetime import datetime
 
 # --- 1. Keep-Alive Web Server ---
 app = Flask('')
 
 @app.route('/')
-def home(): 
+def home():
     return "Bot is Active!"
 
 def run_web():
@@ -20,19 +21,21 @@ def run_web():
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GEMINI_KEY = os.getenv("GEMINI_KEY")
 
-# Safety check: Prevent the "NoneType" error you saw earlier
+# Safety check: Prevent the "NoneType" error
 if not TELEGRAM_TOKEN or not GEMINI_KEY:
     print("❌ ERROR: TELEGRAM_TOKEN or GEMINI_KEY is missing!")
-    exit(1)
+    # We don't exit(1) here on Vercel/Render so the logs can actually be seen
+else:
+    bot = telebot.TeleBot(TELEGRAM_TOKEN)
+    client = genai.Client(api_key=GEMINI_KEY)
+
+# Use 'gemini-1.5-flash' - it has the highest free quota and is most stable
+MODEL_NAME = 'gemini-1.5-flash'
 
 raw_admin_ids = os.getenv("ADMIN_ID", "")
 ADMIN_IDS = [admin.strip() for admin in raw_admin_ids.split(",") if admin.strip()]
 
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
-client = genai.Client(api_key=GEMINI_KEY) # New Client Setup
-
-# Using the requested model
-MODEL_NAME = 'gemini-1.5-pro'
+# In-memory storage (clears on every Render restart)
 daily_orders = []
 
 # --- Helpers ---
@@ -73,23 +76,37 @@ def summarize_saved_orders(message):
         "Instructions: Group identical dishes, sum quantities, format like 'ឆាសាច់ជ្រូក x3', count 'បាយ' separately."
     )
     
-   try:
-    # ប្រើ Client ដែលបានបង្កើតពី genai.Client(api_key=...)
-    response = client.models.generate_content(
-        model=MODEL_NAME, 
-        contents=prompt
-    )
-    
-    if response and response.text:
-        bot.send_message(message.chat.id, f"📋 **បញ្ជីសរុប៖**\n\n{response.text}")
-    else:
-        bot.reply_to(message, "AI មិនអាចបង្កើតអត្ថបទបានទេ។")
+    try:
+        # Generate content using the new library syntax
+        response = client.models.generate_content(
+            model=MODEL_NAME, 
+            contents=prompt
+        )
+        
+        if response and response.text:
+            bot.send_message(message.chat.id, f"📋 **បញ្ជីសរុប៖**\n\n{response.text}")
+        else:
+            bot.reply_to(message, "AI មិនអាចបង្កើតអត្ថបទបានទេ។")
 
-except Exception as e:
-    print(f"[DEBUG ERROR] {e}")
-    bot.reply_to(message, f"កំហុសបច្ចេកទេស៖ {str(e)}")
+    except Exception as e:
+        error_msg = str(e)
+        print(f"[DEBUG ERROR] {error_msg}")
+        
+        if "429" in error_msg:
+            bot.reply_to(message, "⚠️ ជាប់ Quota (Google AI មមាញឹក)។ សូមរង់ចាំ ១ នាទី រួចសាកល្បងម្ដងទៀត។")
+        elif "404" in error_msg:
+            bot.reply_to(message, "⚠️ រកមិនឃើញ Model ទេ។ សូមឆែកមើល MODEL_NAME ក្នុង Code ឡើងវិញ។")
+        else:
+            bot.reply_to(message, f"កំហុសបច្ចេកទេស៖ {error_msg}")
 
+# --- 4. Execution ---
 if __name__ == "__main__":
-    Thread(target=run_web).start()
-    print(f"[DEBUG] Bot is running...")
-    bot.infinity_polling()
+    # Start web server thread
+    Thread(target=run_web, daemon=True).start()
+    print(f"[DEBUG] Bot is running with {MODEL_NAME}...")
+    
+    # Start Telegram polling
+    try:
+        bot.infinity_polling(timeout=10, long_polling_timeout=5)
+    except Exception as e:
+        print(f"Polling Error: {e}")

@@ -32,8 +32,7 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 client = genai.Client(api_key=GEMINI_KEY) # New Client Setup
 
 # Using the requested model
-MODEL_NAME = 'gemini-2.0-flash' # Note: 2.5 was a typo in your snippet; 2.0 is current
-
+MODEL_NAME = 'gemini-1.5-flash'
 daily_orders = []
 
 # --- Helpers ---
